@@ -1,0 +1,233 @@
+/**
+ * Atmospheric Logic - Global Styles
+ * CSS Variables and foundational styling
+ */
+
+:root {
+  /* Color System */
+  --al-primary: #1A1A1B;
+  --al-primary-light: #2A2A2B;
+
+  --al-bg-organic: #F9F7F2;
+  --al-bg-paper: #FFFFFF;
+  --al-bg-card: rgba(255, 255, 255, 0.7);
+
+  --al-accent-cyan: #06B6D4;
+  --al-accent-purple: #A78BFA;
+  --al-accent-amber: #F59E0B;
+
+  --al-text-primary: #1A1A1B;
+  --al-text-secondary: #6B7280;
+  --al-text-muted: #9CA3AF;
+  --al-text-light: #D1D5DB;
+
+  --al-border-subtle: rgba(0, 0, 0, 0.05);
+  --al-border-light: rgba(0, 0, 0, 0.1);
+  --al-border-strong: rgba(0, 0, 0, 0.2);
+
+  /* Spacing System (8px base) */
+  --al-space-xs: 4px;
+  --al-space-sm: 8px;
+  --al-space-md: 16px;
+  --al-space-lg: 24px;
+  --al-space-xl: 32px;
+  --al-space-2xl: 48px;
+
+  /* Border Radius */
+  --al-radius-subtle: 8px;
+  --al-radius-standard: 12px;
+  --al-radius-organic: 16px;
+  --al-radius-pill: 9999px;
+
+  /* Typography */
+  --al-font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --al-font-serif: "Georgia", serif;
+  --al-font-mono: "Monaco", "Courier New", monospace;
+
+  /* Shadow System */
+  --al-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --al-shadow-base: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --al-shadow-md: 0 12px 24px rgba(0, 0, 0, 0.12);
+  --al-shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.15);
+  --al-shadow-xl: 0 30px 60px rgba(0, 0, 0, 0.2);
+  --al-shadow-glow: 0 0 20px rgba(6, 182, 212, 0.4);
+  --al-shadow-glow-purple: 0 0 20px rgba(167, 139, 250, 0.4);
+
+  /* Animation/Transitions */
+  --al-easing-fluid: cubic-bezier(0.22, 1, 0.36, 1);
+  --al-easing-rigor: cubic-bezier(0.4, 0, 0.2, 1);
+  --al-easing-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  --al-duration-fast: 150ms;
+  --al-duration-base: 300ms;
+  --al-duration-slow: 600ms;
+
+  --al-transition-fluid: all 0.6s var(--al-easing-fluid);
+  --al-transition-base: all 0.3s var(--al-easing-rigor);
+
+  /* Z-Index */
+  --al-z-base: 0;
+  --al-z-dropdown: 1000;
+  --al-z-sticky: 1010;
+  --al-z-fixed: 1020;
+  --al-z-modal: 1030;
+  --al-z-tooltip: 1050;
+}
+
+/* Base HTML/Body Setup */
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--al-font-sans);
+  color: var(--al-text-primary);
+  background-color: var(--al-bg-organic);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  line-height: 1.5;
+  font-size: 16px;
+}
+
+/* Atmospheric Viewport Background */
+.al-viewport {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--al-bg-organic);
+
+  /* Organic radial gradient overlay (subtle) */
+  background-image: radial-gradient(
+    at 0% 0%,
+    hsla(40, 12%, 95%, 0.8) 0%,
+    transparent 50%
+  );
+
+  overflow-x: hidden;
+}
+
+/* Typography Defaults */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  line-height: var(--al-line-height-tight, 1.2);
+  color: var(--al-text-primary);
+}
+
+h1 { font-size: 1.875rem; } /* 30px */
+h2 { font-size: 1.5rem; }   /* 24px */
+h3 { font-size: 1.25rem; }  /* 20px */
+h4 { font-size: 1.125rem; } /* 18px */
+h5, h6 { font-size: 1rem; }
+
+p {
+  margin: 0;
+  color: var(--al-text-secondary);
+}
+
+a {
+  color: var(--al-accent-cyan);
+  text-decoration: none;
+  transition: var(--al-transition-base);
+}
+
+a:hover {
+  color: var(--al-accent-purple);
+}
+
+/* Button Reset */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+}
+
+/* Input/Textarea Reset */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+}
+
+/* Scrollbar Styling (Webkit) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--al-bg-organic);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--al-border-light);
+  border-radius: var(--al-radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--al-border-strong);
+}
+
+/* Selection Color */
+::selection {
+  background-color: var(--al-accent-cyan);
+  color: white;
+}
+
+::-moz-selection {
+  background-color: var(--al-accent-cyan);
+  color: white;
+}
+
+/* Utility Classes */
+.al-breathing {
+  transition: var(--al-transition-fluid);
+}
+
+.al-glass {
+  background-color: var(--al-bg-card);
+  backdrop-filter: blur(40px);
+  border: 1px solid var(--al-border-subtle);
+}
+
+.al-glow {
+  box-shadow: var(--al-shadow-glow);
+}
+
+.al-glow-purple {
+  box-shadow: var(--al-shadow-glow-purple);
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark Mode (Optional for future) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --al-bg-organic: #1a1a1a;
+    --al-bg-paper: #2a2a2a;
+    --al-bg-card: rgba(42, 42, 42, 0.7);
+    --al-text-primary: #f5f5f5;
+    --al-text-secondary: #d1d5db;
+    --al-text-muted: #9ca3af;
+  }
+}
