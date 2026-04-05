@@ -1,4 +1,8 @@
-const BASE_URL = '/api/v1'
+// In dev: requests go to /api/v1 (proxied by Vite to localhost:3000)
+// In prod: VITE_API_URL is set to the Railway backend URL
+const BASE_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api/v1`
+  : '/api/v1'
 
 export function getToken(): string | null {
   return localStorage.getItem('lumina_token')

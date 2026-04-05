@@ -13,7 +13,7 @@ export async function getStudySession(fastify: FastifyInstance, userId: string, 
 
   const allQuestions = await prisma.question.findMany({
     where: whereClause,
-    include: { lesson: { include: { course: true } } },
+    include: { lesson: { include: { course: true } }, answers: true },
   })
 
   if (allQuestions.length === 0) return []
@@ -59,6 +59,8 @@ export async function getStudySession(fastify: FastifyInstance, userId: string, 
     return {
       questionId: q.id,
       prompt: q.prompt,
+      answers: q.answers.map(a => ({ id: a.id, text: a.text, isCorrect: a.isCorrect }))
+        .sort(() => Math.random() - 0.5),
       lessonTitle: q.lesson.title,
       courseTitle: q.lesson.course.title,
       courseColor: q.lesson.course.color,

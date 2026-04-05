@@ -41,9 +41,16 @@ interface Achievement {
   rarity: string
 }
 
+interface StudyAnswer {
+  id: string
+  text: string
+  isCorrect: boolean
+}
+
 interface StudyCard {
   questionId: string
   prompt: string
+  answers: StudyAnswer[]
   lessonTitle: string
   courseTitle: string
   courseColor: string
@@ -92,11 +99,9 @@ export default function LuminaApp() {
   const [lessonProgress, setLessonProgress] = useState(0);
   const [isLumiHappy, setIsLumiHappy] = useState(false);
   const [celebrationData, setCelebrationData] = useState<{ type: 'lesson' | 'course'; title: string } | null>(null);
-  const [showContent, setShowContent] = useState(false);
   const [pendingAchievement, setPendingAchievement] = useState<Achievement | null>(null);
   const [studySession, setStudySession] = useState<StudyCard[]>([]);
   const [sessionIndex, setSessionIndex] = useState(0);
-  const [showAnswer, setShowAnswer] = useState(false);
 
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -116,6 +121,19 @@ export default function LuminaApp() {
 
   const selectedCourse = courses.find((c) => c.id === selectedCourseId) ?? null;
   const streak = user?.streak ?? 0;
+
+  const { data: sessionData } = useQuery<{ session: StudyCard[] }>({
+    queryKey: ['cards-session', selectedCourseId],
+    queryFn: () => api.get<{ session: StudyCard[] }>(`/cards/session?courseId=${selectedCourseId}`),
+    enabled: !!selectedCourseId,
+  });
+
+  useEffect(() => {
+    if (sessionData?.session) {
+      setStudySession(sessionData.session)
+      setSessionIndex(0)
+    }
+  }, [sessionData]);
 
   const totalProgress = useMemo(() => {
     if (!courses.length) return 0;
@@ -212,7 +230,7 @@ export default function LuminaApp() {
     >
       <BioluminescenceEngine smoothX={smoothX} smoothY={smoothY} />
 
-      <div className="relative z-10 max-w-[420px] h-[860px] mx-auto mt-8 rounded-[50px] border border-border bg-card/30 backdrop-blur-3xl shadow-2xl overflow-hidden flex flex-col antialiased">
+      <div className="relative z-10 w-full max-w-[420px] h-dvh md:h-[860px] md:mt-8 md:rounded-[50px] mx-auto border-0 md:border border-border bg-card/30 backdrop-blur-3xl shadow-2xl overflow-hidden flex flex-col antialiased">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <motion.div
@@ -246,18 +264,16 @@ export default function LuminaApp() {
               />
             ) : view === 'focus' && selectedCourse ? (
               <FocusView
-                key="focus"
+                key={`focus-${sessionIndex}`}
                 course={selectedCourse}
                 progress={lessonProgress}
+                currentCard={studySession[sessionIndex] ?? null}
+                sessionIndex={sessionIndex}
+                sessionTotal={studySession.length}
                 onBack={() => setView('hub')}
-                onAction={completeLessonStep}
                 isLumiHappy={isLumiHappy}
-                showContent={showContent}
-                onToggleContent={() => setShowContent(prev => !prev)}
                 onQualityRate={handleQualityRate}
                 isReviewPending={reviewMutation.isPending}
-                showAnswer={showAnswer}
-                onShowAnswer={() => setShowAnswer(true)}
               />
             ) : view === 'celebrate' && celebrationData ? (
               <CelebrationView
@@ -667,42 +683,50 @@ const HubView = ({ greeting, username, streak, totalProgress, completedCourses, 
   </motion.div>
 );
 
-// --- FOCUS VIEW (lesson view with milestones) ---
+
+// --- FOCUS VIEW (real SM-2 QCM) ---
 const FocusView = ({
   course,
   progress,
+  currentCard,
+  sessionIndex,
+  sessionTotal,
   onBack,
-  onAction,
   isLumiHappy,
-  showContent,
-  onToggleContent,
   onQualityRate,
   isReviewPending,
-  showAnswer,
-  onShowAnswer,
 }: {
   course: Course;
   progress: number;
+  currentCard: StudyCard | null;
+  sessionIndex: number;
+  sessionTotal: number;
   onBack: () => void;
-  onAction: () => void;
   isLumiHappy: boolean;
-  showContent?: boolean;
-  onToggleContent?: () => void;
   onQualityRate?: (quality: number) => void;
   isReviewPending?: boolean;
-  showAnswer?: boolean;
-  onShowAnswer?: () => void;
 }) => {
-  const currentLesson = useMemo(() => {
-    if (!course.lessons.length) return null;
-    const lessonIndex = Math.min(
-      Math.floor((progress / 100) * course.lessons.length),
-      course.lessons.length - 1
-    );
-    return course.lessons[lessonIndex];
-  }, [progress, course.lessons]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const fragments = ["Interpretation de Copenhague", "Effet Tunnel", "Principe d'Incertitude"];
+  const handleAnswer = useCallback((answer: StudyAnswer) => {
+    if (selectedId || isReviewPending) return;
+    setSelectedId(answer.id);
+    const quality = answer.isCorrect ? 4 : 2;
+    setTimeout(() => {
+      onQualityRate?.(quality);
+    }, 900);
+  }, [selectedId, isReviewPending, onQualityRate]);
+
+  const getAnswerStyle = (answer: StudyAnswer) => {
+    if (!selectedId) return 'border-border bg-muted/10 hover:border-primary/40 hover:bg-muted/20';
+    if (answer.id === selectedId) {
+      return answer.isCorrect
+        ? 'border-green-500/70 bg-green-500/15 text-green-300'
+        : 'border-red-500/70 bg-red-500/15 text-red-300';
+    }
+    if (answer.isCorrect) return 'border-green-500/50 bg-green-500/10 text-green-400';
+    return 'border-border/30 bg-muted/5 opacity-40';
+  };
 
   return (
     <motion.div
@@ -713,165 +737,130 @@ const FocusView = ({
       className="flex-1 flex flex-col overflow-hidden"
     >
       {/* Top bar */}
-      <div className="px-6 pt-8 pb-4 flex items-center gap-3">
+      <div className="px-6 pt-8 pb-3 flex items-center gap-3">
         <motion.button
           whileHover={{ x: -3 }}
           whileTap={{ scale: 0.95 }}
           onClick={onBack}
-          className="w-9 h-9 rounded-full bg-muted/30 border border-border flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+          className="w-9 h-9 rounded-full bg-muted/30 border border-border flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors shrink-0"
         >
           <ChevronLeft size={18} className="text-foreground" />
         </motion.button>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: course.color, boxShadow: `0 0 6px ${course.color}` }} />
-            <span className="text-[10px] font-black tracking-widest uppercase text-muted-foreground">{course.title}</span>
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: course.color, boxShadow: `0 0 6px ${course.color}` }} />
+            <span className="text-[10px] font-black tracking-widest uppercase text-muted-foreground truncate">{course.title}</span>
           </div>
         </div>
         <LumiMascot happy={isLumiHappy} size={32} showSparkles={false} />
       </div>
 
-      {/* Progress milestones */}
-      <div className="px-6 mb-2">
-        <div className="flex items-center gap-1 mb-3">
-          {course.lessons.map((lesson, i) => {
-            const lessonProgress = (progress / 100) * course.lessons.length;
-            const isComplete = i < Math.floor(lessonProgress);
-            const isCurrent = i === Math.floor(lessonProgress);
-
-            return (
-              <React.Fragment key={lesson.id}>
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.1 * i }}
-                  className="relative flex items-center justify-center"
-                >
-                  <div
-                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[10px] font-bold transition-all ${
-                      isComplete
-                        ? 'border-green-500/50 bg-green-500/20 text-green-400'
-                        : isCurrent
-                        ? 'border-primary/60 bg-primary/15 text-primary'
-                        : 'border-border bg-muted/10 text-muted-foreground/40'
-                    }`}
-                    style={isCurrent ? { boxShadow: `0 0 12px ${course.color}40` } : {}}
-                  >
-                    {isComplete ? <Check size={12} /> : i + 1}
-                  </div>
-                </motion.div>
-                {i < course.lessons.length - 1 && (
-                  <div className="flex-1 h-0.5 rounded-full bg-muted/20 overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: isComplete ? '100%' : '0%' }}
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: course.color }}
-                    />
-                  </div>
-                )}
-              </React.Fragment>
-            );
-          })}
+      {/* Session progress bar */}
+      <div className="px-6 mb-4">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">Question</span>
+          <span className="text-[10px] font-bold text-muted-foreground/50">{sessionIndex + 1} / {sessionTotal || '—'}</span>
+        </div>
+        <div className="h-1.5 w-full bg-muted/20 rounded-full overflow-hidden">
+          <motion.div
+            animate={{ width: sessionTotal ? `${(sessionIndex / sessionTotal) * 100}%` : '0%' }}
+            transition={{ type: 'tween', ease: 'circOut', duration: 0.4 }}
+            className="h-full rounded-full"
+            style={{ backgroundColor: course.color, boxShadow: `0 0 8px ${course.color}60` }}
+          />
         </div>
       </div>
 
-      {/* Lesson content */}
-      <div className="flex-1 overflow-y-auto px-6">
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="mb-6"
-        >
-          <h2 className="text-2xl font-extrabold leading-tight tracking-tighter text-foreground/95 mb-2" style={{ fontFamily: 'var(--font-display)' }}>
-            {currentLesson?.title ?? ''}
-          </h2>
-          <p className="text-muted-foreground text-sm leading-relaxed font-medium">
-            Explore les fondements vibratoires de la realite. Chaque fragment compte.
-          </p>
-        </motion.div>
-
-        {/* Summary card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="p-4 rounded-2xl bg-muted/10 border border-border mb-5"
-        >
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-bold text-muted-foreground/70">Progression</span>
-            <span className="text-xs font-bold" style={{ color: course.color }}>{Math.round(progress)}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-muted/30 rounded-full overflow-hidden">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-6 pb-6">
+        {!currentCard ? (
+          <div className="flex items-center justify-center py-20">
             <motion.div
-              animate={{ width: `${progress}%` }}
-              transition={{ type: "tween", ease: "circOut" }}
-              className="h-full rounded-full"
-              style={{
-                backgroundColor: course.color,
-                boxShadow: `0 0 10px ${course.color}60`,
-              }}
-            />
-          </div>
-        </motion.div>
-
-        {/* Lesson rich content (if available) */}
-        {showContent && (currentLesson as any)?.content && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-5"
-          >
-            <LessonContent content={(currentLesson as any).content} />
-          </motion.div>
-        )}
-
-        {/* Quality rating (SM-2) if answer is shown */}
-        {showAnswer && onQualityRate ? (
-          <div className="pb-6">
-            <QualityRating onRate={onQualityRate} isLoading={isReviewPending} />
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+              className="text-sm text-muted-foreground font-medium tracking-widest uppercase"
+            >
+              Chargement...
+            </motion.div>
           </div>
         ) : (
           <>
-            {/* Fragment choices */}
-            <h4 className="text-[10px] font-black tracking-[0.3em] uppercase text-muted-foreground/50 mb-4">
-              Fragment a valider
-            </h4>
-            <div className="space-y-3 pb-6">
-              {fragments.map((ans, i) => (
+            {/* Lesson label */}
+            <div className="mb-3">
+              <span className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">
+                {currentCard.isNew ? '✦ Nouvelle carte' : '↻ Révision'}
+              </span>
+              <p className="text-xs text-muted-foreground/40 mt-0.5">{currentCard.lessonTitle}</p>
+            </div>
+
+            {/* Question */}
+            <motion.div
+              key={currentCard.questionId}
+              initial={{ y: 15, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="mb-7 p-5 rounded-3xl bg-gradient-to-br from-primary/8 to-secondary/5 border border-primary/15"
+            >
+              <p className="text-lg font-extrabold leading-snug tracking-tight text-foreground/95" style={{ fontFamily: 'var(--font-display)' }}>
+                {currentCard.prompt}
+              </p>
+            </motion.div>
+
+            {/* Answers */}
+            <div className="space-y-3">
+              {currentCard.answers.map((answer, i) => (
                 <motion.button
-                  key={i}
-                  initial={{ x: -20, opacity: 0 }}
+                  key={answer.id}
+                  initial={{ x: -15, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 + i * 0.08 }}
-                  whileHover={{ x: 5, backgroundColor: 'hsl(var(--muted) / 0.3)' }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    if (onShowAnswer) {
-                      onShowAnswer();
-                    } else {
-                      onAction();
-                    }
-                  }}
-                  className="w-full p-4 rounded-2xl border border-border bg-muted/10 text-left text-sm font-semibold flex justify-between items-center group transition-all"
+                  transition={{ delay: 0.15 + i * 0.07 }}
+                  whileTap={{ scale: selectedId ? 1 : 0.98 }}
+                  onClick={() => handleAnswer(answer)}
+                  disabled={!!selectedId || isReviewPending}
+                  className={`w-full p-4 rounded-2xl border text-left text-sm font-semibold flex items-center gap-3 transition-all duration-300 cursor-pointer disabled:cursor-default ${getAnswerStyle(answer)}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-full border border-border bg-muted/20 flex items-center justify-center text-[10px] font-bold text-muted-foreground/60 group-hover:border-primary/40 group-hover:text-primary transition-colors">
-                      {String.fromCharCode(65 + i)}
-                    </div>
-                    <span className="text-foreground/80 group-hover:text-foreground transition-colors">{ans}</span>
+                  <div className={`w-7 h-7 rounded-full border flex items-center justify-center text-[10px] font-bold shrink-0 transition-all ${
+                    selectedId && answer.isCorrect
+                      ? 'border-green-500/60 bg-green-500/20 text-green-400'
+                      : selectedId && answer.id === selectedId && !answer.isCorrect
+                      ? 'border-red-500/60 bg-red-500/20 text-red-400'
+                      : 'border-current bg-current/5'
+                  }`}>
+                    {selectedId && answer.isCorrect ? <Check size={12} /> :
+                     selectedId && answer.id === selectedId ? '✕' :
+                     String.fromCharCode(65 + i)}
                   </div>
-                  <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
+                  <span className="leading-snug">{answer.text}</span>
                 </motion.button>
               ))}
             </div>
+
+            {/* Feedback */}
+            <AnimatePresence>
+              {selectedId && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className={`mt-5 p-3 rounded-2xl text-center text-sm font-bold ${
+                    currentCard.answers.find(a => a.id === selectedId)?.isCorrect
+                      ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                      : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                  }`}
+                >
+                  {currentCard.answers.find(a => a.id === selectedId)?.isCorrect
+                    ? '✓ Exactement !'
+                    : `✗ Bonne réponse : "${currentCard.answers.find(a => a.isCorrect)?.text}"`}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </>
         )}
       </div>
     </motion.div>
   );
 };
+
 
 // --- CELEBRATION VIEW ---
 const CelebrationView = ({ type, title, streak, onDone }: {

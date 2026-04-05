@@ -53,7 +53,7 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     host: '::',
-    port: parseInt(process.env.VITE_PORT || '8080'),
+    port: parseInt(process.env.VITE_PORT || process.env.PORT || '8080'),
     hmr: { overlay: false },
     proxy: {
       '/api': {

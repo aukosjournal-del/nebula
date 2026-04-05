@@ -1,0 +1,8 @@
+{
+  "slug": "mathematiques",
+  "title": "Mathématiques",
+  "description": "L'art de raisonner — des nombres aux infinis, en passant par le hasard",
+  "iconName": "Calculator",
+  "color": "#10b981",
+  "order": 5
+}
