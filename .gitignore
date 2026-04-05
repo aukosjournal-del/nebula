@@ -66,3 +66,6 @@ temp/
 
 # Claude worktrees (managed separately)
 .claude/worktrees/
+
+# Lesson worktrees (séparés des worktrees Claude)
+worktrees/

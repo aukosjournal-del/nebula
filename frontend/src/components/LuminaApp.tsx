@@ -4,6 +4,11 @@ import { Flame, Zap, ChevronLeft, ChevronRight, Sparkles, BookOpen, Target, Brai
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import LessonContent from './LessonContent';
+import QualityRating from './QualityRating';
+import AchievementToast from './AchievementToast';
+import LearningDashboard from './LearningDashboard';
+import InstallPrompt from './InstallPrompt';
 
 // --- PHYSICS CONFIG ---
 const springTuning = { type: "spring" as const, damping: 20, stiffness: 120, mass: 1 };
@@ -27,6 +32,25 @@ interface Course {
   lessonCount: number;
   lessons: Lesson[];
   progress: CourseProgress;
+}
+
+interface Achievement {
+  title: string
+  description: string
+  iconName: string
+  rarity: string
+}
+
+interface StudyCard {
+  questionId: string
+  prompt: string
+  lessonTitle: string
+  courseTitle: string
+  courseColor: string
+  easeFactor: number
+  interval: number
+  repetitions: number
+  isNew: boolean
 }
 
 // --- ICON MAP ---
@@ -68,6 +92,11 @@ export default function LuminaApp() {
   const [lessonProgress, setLessonProgress] = useState(0);
   const [isLumiHappy, setIsLumiHappy] = useState(false);
   const [celebrationData, setCelebrationData] = useState<{ type: 'lesson' | 'course'; title: string } | null>(null);
+  const [showContent, setShowContent] = useState(false);
+  const [pendingAchievement, setPendingAchievement] = useState<Achievement | null>(null);
+  const [studySession, setStudySession] = useState<StudyCard[]>([]);
+  const [sessionIndex, setSessionIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
 
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -122,9 +151,42 @@ export default function LuminaApp() {
     },
   });
 
+  const reviewMutation = useMutation({
+    mutationFn: async ({ questionId, quality }: { questionId: string; quality: number }) => {
+      const result = await api.post<{ newAchievements: Achievement[]; nextReview: string }>(`/cards/${questionId}/review`, { quality })
+      return result
+    },
+    onSuccess: (data) => {
+      if (data.newAchievements?.length > 0) {
+        setPendingAchievement(data.newAchievements[0])
+        setIsLumiHappy(true)
+        setTimeout(() => setIsLumiHappy(false), 2000)
+      }
+      // Advance to next card
+      if (sessionIndex < studySession.length - 1) {
+        setSessionIndex(prev => prev + 1)
+        setShowAnswer(false)
+      } else {
+        // Session terminée
+        setView('celebrate')
+      }
+      queryClient.invalidateQueries({ queryKey: ['card-stats'] })
+    },
+  });
+
   const completeLessonStep = () => {
     if (!selectedCourse) return;
     advanceMutation.mutate({ courseId: selectedCourse.id });
+  };
+
+  const handleQualityRate = (quality: number) => {
+    const currentCard = studySession[sessionIndex]
+    if (!currentCard) {
+      // Fallback: use the existing advance mutation if no study session
+      completeLessonStep()
+      return
+    }
+    reviewMutation.mutate({ questionId: currentCard.questionId, quality })
   };
 
   const handleCelebrationDone = () => {
@@ -190,6 +252,12 @@ export default function LuminaApp() {
                 onBack={() => setView('hub')}
                 onAction={completeLessonStep}
                 isLumiHappy={isLumiHappy}
+                showContent={showContent}
+                onToggleContent={() => setShowContent(prev => !prev)}
+                onQualityRate={handleQualityRate}
+                isReviewPending={reviewMutation.isPending}
+                showAnswer={showAnswer}
+                onShowAnswer={() => setShowAnswer(true)}
               />
             ) : view === 'celebrate' && celebrationData ? (
               <CelebrationView
@@ -203,6 +271,11 @@ export default function LuminaApp() {
           </AnimatePresence>
         )}
       </div>
+
+      <AchievementToast
+        achievement={pendingAchievement}
+        onDismiss={() => setPendingAchievement(null)}
+      />
     </div>
   );
 }
@@ -391,6 +464,8 @@ const DashboardHeader = ({ greeting, username, streak, onLogout }: {
           <span className="text-xs font-bold text-orange-300">{streak}</span>
         </motion.div>
 
+        <InstallPrompt />
+
         <motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
@@ -565,8 +640,13 @@ const HubView = ({ greeting, username, streak, totalProgress, completedCourses, 
     {/* Overall progress */}
     <OverallProgressCard percentage={totalProgress} completed={completedCourses} total={totalCourses} />
 
+    {/* Learning dashboard */}
+    <div className="px-6 pt-4">
+      <LearningDashboard />
+    </div>
+
     {/* Course list header */}
-    <div className="px-6 pt-5 pb-2 flex justify-between items-center">
+    <div className="px-6 pt-1 pb-2 flex justify-between items-center">
       <h2 className="text-xs font-black tracking-widest uppercase text-muted-foreground/60" style={{ fontFamily: 'var(--font-display)' }}>
         Parcours
       </h2>
@@ -588,12 +668,30 @@ const HubView = ({ greeting, username, streak, totalProgress, completedCourses, 
 );
 
 // --- FOCUS VIEW (lesson view with milestones) ---
-const FocusView = ({ course, progress, onBack, onAction, isLumiHappy }: {
+const FocusView = ({
+  course,
+  progress,
+  onBack,
+  onAction,
+  isLumiHappy,
+  showContent,
+  onToggleContent,
+  onQualityRate,
+  isReviewPending,
+  showAnswer,
+  onShowAnswer,
+}: {
   course: Course;
   progress: number;
   onBack: () => void;
   onAction: () => void;
   isLumiHappy: boolean;
+  showContent?: boolean;
+  onToggleContent?: () => void;
+  onQualityRate?: (quality: number) => void;
+  isReviewPending?: boolean;
+  showAnswer?: boolean;
+  onShowAnswer?: () => void;
 }) => {
   const currentLesson = useMemo(() => {
     if (!course.lessons.length) return null;
@@ -718,32 +816,58 @@ const FocusView = ({ course, progress, onBack, onAction, isLumiHappy }: {
           </div>
         </motion.div>
 
-        {/* Fragment choices */}
-        <h4 className="text-[10px] font-black tracking-[0.3em] uppercase text-muted-foreground/50 mb-4">
-          Fragment a valider
-        </h4>
-        <div className="space-y-3 pb-6">
-          {fragments.map((ans, i) => (
-            <motion.button
-              key={i}
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.4 + i * 0.08 }}
-              whileHover={{ x: 5, backgroundColor: 'hsl(var(--muted) / 0.3)' }}
-              whileTap={{ scale: 0.98 }}
-              onClick={onAction}
-              className="w-full p-4 rounded-2xl border border-border bg-muted/10 text-left text-sm font-semibold flex justify-between items-center group transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-full border border-border bg-muted/20 flex items-center justify-center text-[10px] font-bold text-muted-foreground/60 group-hover:border-primary/40 group-hover:text-primary transition-colors">
-                  {String.fromCharCode(65 + i)}
-                </div>
-                <span className="text-foreground/80 group-hover:text-foreground transition-colors">{ans}</span>
-              </div>
-              <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
-            </motion.button>
-          ))}
-        </div>
+        {/* Lesson rich content (if available) */}
+        {showContent && (currentLesson as any)?.content && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5"
+          >
+            <LessonContent content={(currentLesson as any).content} />
+          </motion.div>
+        )}
+
+        {/* Quality rating (SM-2) if answer is shown */}
+        {showAnswer && onQualityRate ? (
+          <div className="pb-6">
+            <QualityRating onRate={onQualityRate} isLoading={isReviewPending} />
+          </div>
+        ) : (
+          <>
+            {/* Fragment choices */}
+            <h4 className="text-[10px] font-black tracking-[0.3em] uppercase text-muted-foreground/50 mb-4">
+              Fragment a valider
+            </h4>
+            <div className="space-y-3 pb-6">
+              {fragments.map((ans, i) => (
+                <motion.button
+                  key={i}
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.4 + i * 0.08 }}
+                  whileHover={{ x: 5, backgroundColor: 'hsl(var(--muted) / 0.3)' }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    if (onShowAnswer) {
+                      onShowAnswer();
+                    } else {
+                      onAction();
+                    }
+                  }}
+                  className="w-full p-4 rounded-2xl border border-border bg-muted/10 text-left text-sm font-semibold flex justify-between items-center group transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full border border-border bg-muted/20 flex items-center justify-center text-[10px] font-bold text-muted-foreground/60 group-hover:border-primary/40 group-hover:text-primary transition-colors">
+                      {String.fromCharCode(65 + i)}
+                    </div>
+                    <span className="text-foreground/80 group-hover:text-foreground transition-colors">{ans}</span>
+                  </div>
+                  <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
+                </motion.button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </motion.div>
   );

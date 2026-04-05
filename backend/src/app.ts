@@ -7,6 +7,8 @@ import authRoutes from './modules/auth/auth.routes'
 import courseRoutes from './modules/courses/courses.routes'
 import progressRoutes from './modules/progress/progress.routes'
 import streakRoutes from './modules/streak/streak.routes'
+import { cardsRoutes } from './modules/cards/cards.routes'
+import { achievementsRoutes } from './modules/achievements/achievements.routes'
 
 export function createApp() {
   const fastify = Fastify({
@@ -32,6 +34,8 @@ export function createApp() {
   fastify.register(courseRoutes, { prefix: '/api/v1/courses' })
   fastify.register(progressRoutes, { prefix: '/api/v1/progress' })
   fastify.register(streakRoutes, { prefix: '/api/v1/streak' })
+  fastify.register(cardsRoutes, { prefix: '/api/v1/cards' })
+  fastify.register(achievementsRoutes, { prefix: '/api/v1/achievements' })
 
   return fastify
 }

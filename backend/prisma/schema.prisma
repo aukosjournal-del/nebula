@@ -8,14 +8,16 @@ datasource db {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  username     String     @unique
+  id           String            @id @default(cuid())
+  email        String            @unique
+  username     String            @unique
   passwordHash String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
   progresses   Progress[]
   streak       Streak?
+  cardReviews  CardReview[]
+  achievements UserAchievement[]
 }
 
 model Course {
@@ -40,15 +42,20 @@ model Lesson {
   course     Course     @relation(fields: [courseId], references: [id])
   questions  Question[]
   progresses Progress[]
+
+  @@unique([courseId, order])
 }
 
 model Question {
-  id       String   @id @default(cuid())
-  lessonId String
-  prompt   String
-  order    Int      @default(0)
-  lesson   Lesson   @relation(fields: [lessonId], references: [id])
-  answers  Answer[]
+  id          String       @id @default(cuid())
+  lessonId    String
+  prompt      String
+  order       Int          @default(0)
+  lesson      Lesson       @relation(fields: [lessonId], references: [id])
+  answers     Answer[]
+  cardReviews CardReview[]
+
+  @@unique([lessonId, order])
 }
 
 model Answer {
@@ -83,4 +90,42 @@ model Streak {
   lastActivityAt DateTime @default(now())
   updatedAt      DateTime @updatedAt
   user           User     @relation(fields: [userId], references: [id])
+}
+
+model CardReview {
+  id          String    @id @default(cuid())
+  userId      String
+  questionId  String
+  easeFactor  Float     @default(2.5)
+  interval    Int       @default(0)
+  repetitions Int       @default(0)
+  dueDate     DateTime  @default(now())
+  lastReview  DateTime?
+  quality     Int?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question    Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+}
+
+model Achievement {
+  id          String            @id @default(cuid())
+  slug        String            @unique
+  title       String
+  description String
+  iconName    String
+  rarity      String            @default("common")
+  condition   Json
+  users       UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
 }

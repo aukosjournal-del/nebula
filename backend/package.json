@@ -21,6 +21,7 @@
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
     "fastify-plugin": "^4.5.1",
+    "gray-matter": "^4.0.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {
