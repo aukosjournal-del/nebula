@@ -1,4 +1,4 @@
-import '../src/types'
+import '../types'
 import Fastify from 'fastify'
 import prismaPlugin from './plugins/prisma'
 import corsPlugin from './plugins/cors'
