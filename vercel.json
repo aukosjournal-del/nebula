@@ -1,4 +1,4 @@
 {
-  "buildCommand": "VITE_API_URL=https://nebula-backend-ytb5.onrender.com bun run build:frontend",
+  "buildCommand": "bash build.sh",
   "outputDirectory": "frontend/dist"
 }
