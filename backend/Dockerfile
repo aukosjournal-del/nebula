@@ -31,4 +31,4 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # Migrate then start
-CMD echo "Starting migrations..." && bunx prisma migrate deploy && echo "Migrations done, starting app..." && bun run.mjs
+CMD bun run.mjs
