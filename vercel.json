@@ -1,7 +1,4 @@
 {
-  "buildCommand": "bun run build:frontend",
-  "outputDirectory": "frontend/dist",
-  "env": {
-    "VITE_API_URL": "https://nebula-backend-ytb5.onrender.com"
-  }
+  "buildCommand": "VITE_API_URL=https://nebula-backend-ytb5.onrender.com bun run build:frontend",
+  "outputDirectory": "frontend/dist"
 }
