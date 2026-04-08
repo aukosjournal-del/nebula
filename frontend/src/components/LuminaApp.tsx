@@ -195,6 +195,7 @@ export default function LuminaApp() {
         setView('celebrate')
       }
       queryClient.invalidateQueries({ queryKey: ['card-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['cards-session', selectedCourseId] })
     },
   });
 

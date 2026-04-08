@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { calculateSM2 } from '../../lib/sm2'
+import { updateStreak } from '../streak/streak.service'
 
 const SESSION_SIZE = 10
 
@@ -115,6 +116,9 @@ export async function submitReview(
     },
   })
 
+  // Sync lesson progress based on SM-2 reviews
+  const progressSync = await syncLessonProgress(fastify, userId, questionId)
+
   // Check and award achievements
   const newAchievements = await checkAndAwardAchievements(fastify, userId)
 
@@ -125,6 +129,8 @@ export async function submitReview(
     interval: result.interval,
     easeFactor: result.easeFactor,
     newAchievements,
+    lessonComplete: progressSync.lessonComplete,
+    courseComplete: progressSync.courseComplete,
   }
 }
 
@@ -145,6 +151,103 @@ export async function getCardStats(fastify: FastifyInstance, userId: string) {
   const masteredCards = reviews.filter(r => r.interval > 30).length
 
   return { totalCards, dueToday, masteredCards, avgEaseFactor, totalReviewed: reviews.length }
+}
+
+async function syncLessonProgress(
+  fastify: FastifyInstance,
+  userId: string,
+  questionId: string
+) {
+  const prisma = fastify.prisma
+
+  // Get the question with its lesson and course (including all lessons)
+  const question = await prisma.question.findUnique({
+    where: { id: questionId },
+    include: {
+      lesson: {
+        include: {
+          course: {
+            include: { lessons: { orderBy: { order: 'asc' }, include: { questions: true } } },
+          },
+        },
+      },
+    },
+  })
+  if (!question) return { lessonComplete: false, courseComplete: false }
+
+  const course = question.lesson.course
+  const allLessons = course.lessons
+
+  // Get ALL question IDs across the course
+  const allQuestionIds = allLessons.flatMap(l => l.questions.map(q => q.id))
+
+  // Batch-fetch all reviews for this user across the entire course
+  const allReviews = await prisma.cardReview.findMany({
+    where: { userId, questionId: { in: allQuestionIds } },
+  })
+  const reviewMap = new Map(allReviews.map(r => [r.questionId, r]))
+
+  // Determine which lessons are fully passed (all questions reviewed with quality >= 3)
+  let completedLessonCount = 0
+  let firstIncompleteLessonId: string | null = null
+
+  for (const lesson of allLessons) {
+    if (lesson.questions.length === 0) {
+      completedLessonCount++
+      continue
+    }
+    const allPassing = lesson.questions.every(q => {
+      const r = reviewMap.get(q.id)
+      return r && (r.quality ?? 0) >= 3
+    })
+    if (allPassing) {
+      completedLessonCount++
+    } else if (!firstIncompleteLessonId) {
+      firstIncompleteLessonId = lesson.id
+    }
+  }
+
+  const totalLessons = allLessons.length
+  const newPercentage = totalLessons > 0
+    ? Math.min(Math.round((completedLessonCount / totalLessons) * 100), 100)
+    : 0
+  const courseComplete = completedLessonCount >= totalLessons && totalLessons > 0
+
+  // Check what progress was before to detect lesson completion
+  const prevProgress = await prisma.progress.findUnique({
+    where: { userId_courseId: { userId, courseId: course.id } },
+  })
+  const prevPercentage = prevProgress?.percentage ?? 0
+  const lessonComplete = newPercentage > prevPercentage
+
+  // Upsert progress
+  const currentLessonId = courseComplete
+    ? allLessons[totalLessons - 1].id
+    : (firstIncompleteLessonId ?? allLessons[0]?.id)
+
+  await prisma.progress.upsert({
+    where: { userId_courseId: { userId, courseId: course.id } },
+    create: {
+      userId,
+      courseId: course.id,
+      currentLessonId: currentLessonId,
+      completedSteps: 0,
+      percentage: newPercentage,
+      completedAt: courseComplete ? new Date() : null,
+    },
+    update: {
+      currentLessonId: currentLessonId,
+      percentage: newPercentage,
+      completedAt: courseComplete ? new Date() : null,
+    },
+  })
+
+  // Update streak when a lesson completes
+  if (lessonComplete) {
+    await updateStreak(prisma, userId)
+  }
+
+  return { lessonComplete, courseComplete }
 }
 
 async function checkAndAwardAchievements(fastify: FastifyInstance, userId: string) {
