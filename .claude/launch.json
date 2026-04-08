@@ -21,6 +21,12 @@
       "runtimeArgs": ["run", "db:studio"],
       "cwd": "backend",
       "port": 5555
+    },
+    {
+      "name": "Lumi Icon Generator",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "serve-lumi.js"],
+      "port": 3001
     }
   ]
 }
