@@ -58,8 +58,12 @@ export default function Login() {
         className="relative z-10 w-full max-w-sm mx-4 p-8 rounded-[32px] border border-border bg-card/30 backdrop-blur-3xl shadow-2xl"
       >
         <div className="flex flex-col items-center mb-8">
-          <div className="mb-2 drop-shadow-[0_0_18px_rgba(0,217,255,0.6)]">
-            <LumiMascot size={90} />
+          {/* translateX(-size*0.4) centre la tête de la comète (container = size*1.8) */}
+          <div
+            className="mb-3 drop-shadow-[0_0_18px_rgba(0,217,255,0.5)]"
+            style={{ transform: 'translateX(-29px)' }}
+          >
+            <LumiMascot size={72} showSparkles />
           </div>
           <h1 className="text-2xl font-black tracking-tighter text-foreground">Nebula</h1>
           <p className="text-xs text-muted-foreground/60 tracking-widest uppercase font-bold mt-1">
