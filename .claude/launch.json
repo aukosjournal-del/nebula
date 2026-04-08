@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Nebula Backend (Fastify :3000)",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "backend",
+      "port": 3000
+    },
+    {
+      "name": "Nebula Frontend (Vite :8080)",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 8080
+    },
+    {
+      "name": "Prisma Studio (:5555)",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "db:studio"],
+      "cwd": "backend",
+      "port": 5555
+    }
+  ]
+}
