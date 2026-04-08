@@ -61,9 +61,9 @@ export default function Login() {
           {/* translateX(-size*0.4) centre la tête de la comète (container = size*1.8) */}
           <div
             className="mb-3 drop-shadow-[0_0_18px_rgba(0,217,255,0.5)]"
-            style={{ transform: 'translateX(-29px)' }}
+            style={{ transform: 'translateX(-23px)' }}
           >
-            <LumiMascot size={72} showSparkles />
+            <LumiMascot size={58} showSparkles />
           </div>
           <h1 className="text-2xl font-black tracking-tighter text-foreground">Nebula</h1>
           <p className="text-xs text-muted-foreground/60 tracking-widest uppercase font-bold mt-1">
