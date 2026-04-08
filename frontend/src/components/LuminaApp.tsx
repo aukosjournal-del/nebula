@@ -186,6 +186,12 @@ export default function LuminaApp() {
         setShowAnswer(false)
       } else {
         // Session terminée
+        setCelebrationData({
+          type: 'lesson',
+          title: selectedCourse?.title ?? 'Session',
+        })
+        queryClient.invalidateQueries({ queryKey: ['courses'] })
+        queryClient.invalidateQueries({ queryKey: ['me'] })
         setView('celebrate')
       }
       queryClient.invalidateQueries({ queryKey: ['card-stats'] })
@@ -275,11 +281,11 @@ export default function LuminaApp() {
                 onQualityRate={handleQualityRate}
                 isReviewPending={reviewMutation.isPending}
               />
-            ) : view === 'celebrate' && celebrationData ? (
+            ) : view === 'celebrate' ? (
               <CelebrationView
                 key="celebrate"
-                type={celebrationData.type}
-                title={celebrationData.title}
+                type={celebrationData?.type ?? 'lesson'}
+                title={celebrationData?.title ?? 'Session terminée'}
                 streak={streak}
                 onDone={handleCelebrationDone}
               />
