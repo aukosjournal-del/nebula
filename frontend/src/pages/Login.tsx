@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import LumiMascot from '@/components/LumiMascot'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -58,13 +58,9 @@ export default function Login() {
         className="relative z-10 w-full max-w-sm mx-4 p-8 rounded-[32px] border border-border bg-card/30 backdrop-blur-3xl shadow-2xl"
       >
         <div className="flex flex-col items-center mb-8">
-          <motion.div
-            animate={{ y: [0, -8, 0] }}
-            transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
-            className="w-12 h-12 bg-foreground rounded-full shadow-[0_0_30px_rgba(255,255,255,0.8)] mb-4 flex items-center justify-center"
-          >
-            <Sparkles size={20} className="text-background" />
-          </motion.div>
+          <div className="mb-2 drop-shadow-[0_0_18px_rgba(0,217,255,0.6)]">
+            <LumiMascot size={90} />
+          </div>
           <h1 className="text-2xl font-black tracking-tighter text-foreground">Nebula</h1>
           <p className="text-xs text-muted-foreground/60 tracking-widest uppercase font-bold mt-1">
             {mode === 'login' ? 'Retrouve ton univers' : 'Commence ton voyage'}
