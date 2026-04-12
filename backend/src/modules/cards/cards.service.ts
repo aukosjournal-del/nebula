@@ -28,7 +28,10 @@ export async function getStudySession(fastify: FastifyInstance, userId: string, 
   const now = new Date()
 
   // Categorize cards
-  const newCards = allQuestions.filter(q => !reviewMap.has(q.id))
+  // Sort new cards by lesson order so sessions complete lessons sequentially
+  const newCards = allQuestions
+    .filter(q => !reviewMap.has(q.id))
+    .sort((a, b) => a.lesson.order - b.lesson.order || a.order - b.order)
   const dueCards = allQuestions.filter(q => {
     const r = reviewMap.get(q.id)
     return r && r.dueDate <= now && r.interval <= 3
