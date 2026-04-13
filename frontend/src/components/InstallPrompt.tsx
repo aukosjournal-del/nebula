@@ -25,7 +25,8 @@ export default function InstallPrompt() {
     if (!deferredPrompt) return
     await deferredPrompt.prompt()
     const { outcome } = await deferredPrompt.userChoice
-    if (outcome === 'accepted') setShow(false)
+    // Hide the banner whether the user accepted or dismissed the native prompt
+    if (outcome === 'accepted' || outcome === 'dismissed') setShow(false)
     setDeferredPrompt(null)
   }
 

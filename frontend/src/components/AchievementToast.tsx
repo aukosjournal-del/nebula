@@ -34,9 +34,7 @@ export default function AchievementToast({ achievement, onDismiss }: Achievement
     return () => clearTimeout(timer)
   }, [achievement, onDismiss])
 
-  if (!achievement) return null
-
-  const rarity = achievement.rarity || 'common'
+  const rarity = achievement?.rarity || 'common'
 
   return (
     <AnimatePresence>

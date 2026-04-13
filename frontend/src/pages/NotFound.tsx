@@ -17,7 +17,7 @@ const NotFound = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="text-center p-12 rounded-2xl bg-white/50 backdrop-blur-xl border border-black/5 shadow-lg"
+        className="text-center p-12 rounded-2xl bg-muted/15 backdrop-blur-xl border border-border/30 shadow-lg"
       >
         <h1
           className="mb-4 text-6xl font-black tracking-tighter"

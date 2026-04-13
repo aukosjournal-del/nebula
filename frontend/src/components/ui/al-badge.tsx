@@ -9,11 +9,11 @@ interface ALBadgeProps {
 }
 
 const variantStyles = {
-  default: 'bg-gray-100 text-gray-700 border-gray-200',
-  success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  warning: 'bg-amber-50 text-amber-700 border-amber-200',
-  error: 'bg-red-50 text-red-700 border-red-200',
-  info: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  default: 'bg-muted/20 text-foreground/70 border-border/40',
+  success: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  warning: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  error: 'bg-red-500/10 text-red-400 border-red-500/30',
+  info: 'bg-primary/10 text-primary border-primary/30',
 };
 
 const sizeStyles = {

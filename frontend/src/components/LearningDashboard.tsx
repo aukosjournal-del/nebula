@@ -19,7 +19,7 @@ export default function LearningDashboard() {
 
   if (isLoading || !data) return null
 
-  const retention = data.totalReviewed > 0
+  const retention = data.totalCards > 0
     ? Math.round((data.masteredCards / data.totalCards) * 100)
     : 0
 

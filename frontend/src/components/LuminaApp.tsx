@@ -91,7 +91,7 @@ const ConfettiParticle = ({ delay, color }: { delay: number; color: string }) =>
 
 // --- MAIN APP ---
 export default function LuminaApp() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
   const [view, setView] = useState<'hub' | 'focus' | 'celebrate'>('hub');
@@ -102,6 +102,7 @@ export default function LuminaApp() {
   const [pendingAchievement, setPendingAchievement] = useState<Achievement | null>(null);
   const [studySession, setStudySession] = useState<StudyCard[]>([]);
   const [sessionIndex, setSessionIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
 
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -143,6 +144,8 @@ export default function LuminaApp() {
   const completedCourses = useMemo(() => courses.filter(c => c.progress.completedAt).length, [courses]);
 
   // --- ADVANCE ---
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
+
   const advanceMutation = useMutation({
     mutationFn: ({ courseId, answerId }: { courseId: string; answerId?: string }) =>
       api.post<{
@@ -154,11 +157,13 @@ export default function LuminaApp() {
         streak: number;
       }>(`/progress/${courseId}/advance`, answerId ? { answerId } : {}),
     onSuccess: (data) => {
+      setAdvanceError(null);
       setLessonProgress(data.percentage);
       if (data.lessonComplete || data.courseComplete) {
         setIsLumiHappy(true);
         queryClient.invalidateQueries({ queryKey: ['courses'] });
-        queryClient.invalidateQueries({ queryKey: ['me'] });
+        queryClient.invalidateQueries({ queryKey: ['card-stats'] });
+        if (data.streakUpdated) refreshUser();
 
         setCelebrationData({
           type: data.courseComplete ? 'course' : 'lesson',
@@ -167,35 +172,64 @@ export default function LuminaApp() {
         setView('celebrate');
       }
     },
+    onError: (err: Error) => {
+      setAdvanceError(err.message ?? 'Erreur lors de la progression');
+    },
   });
+
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const reviewMutation = useMutation({
     mutationFn: async ({ questionId, quality }: { questionId: string; quality: number }) => {
-      const result = await api.post<{ newAchievements: Achievement[]; nextReview: string }>(`/cards/${questionId}/review`, { quality })
+      const result = await api.post<{
+        newAchievements: Achievement[];
+        nextReview: string;
+        lessonComplete: boolean;
+        courseComplete: boolean;
+      }>(`/cards/${questionId}/review`, { quality })
       return result
     },
     onSuccess: (data) => {
+      setReviewError(null);
       if (data.newAchievements?.length > 0) {
         setPendingAchievement(data.newAchievements[0])
         setIsLumiHappy(true)
         setTimeout(() => setIsLumiHappy(false), 2000)
       }
-      // Advance to next card
+
+      queryClient.invalidateQueries({ queryKey: ['card-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['cards-session', selectedCourseId] })
+
+      // If a lesson or course was just completed, show celebration immediately
+      if (data.lessonComplete || data.courseComplete) {
+        setIsLumiHappy(true)
+        queryClient.invalidateQueries({ queryKey: ['courses'] })
+        refreshUser()
+        setCelebrationData({
+          type: data.courseComplete ? 'course' : 'lesson',
+          title: selectedCourse?.title ?? '',
+        })
+        setView('celebrate')
+        return
+      }
+
+      // Advance to next card in the session
       if (sessionIndex < studySession.length - 1) {
         setSessionIndex(prev => prev + 1)
-        setShowAnswer(false)
       } else {
-        // Session terminée
+        // Session épuisée sans complétion de leçon détectée
+        queryClient.invalidateQueries({ queryKey: ['courses'] })
+        refreshUser()
         setCelebrationData({
           type: 'lesson',
           title: selectedCourse?.title ?? 'Session',
         })
-        queryClient.invalidateQueries({ queryKey: ['courses'] })
-        queryClient.invalidateQueries({ queryKey: ['me'] })
+        setIsLumiHappy(true)
         setView('celebrate')
       }
-      queryClient.invalidateQueries({ queryKey: ['card-stats'] })
-      queryClient.invalidateQueries({ queryKey: ['cards-session', selectedCourseId] })
+    },
+    onError: (err: Error) => {
+      setReviewError(err.message ?? 'Erreur lors de la révision');
     },
   });
 
@@ -219,6 +253,9 @@ export default function LuminaApp() {
     setIsLumiHappy(false);
     setLessonProgress(0);
     setCelebrationData(null);
+    setStudySession([]);
+    setSessionIndex(0);
+    setShowAnswer(false);
   };
 
   // Greeting
@@ -271,7 +308,7 @@ export default function LuminaApp() {
               />
             ) : view === 'focus' && selectedCourse ? (
               <FocusView
-                key={`focus-${sessionIndex}`}
+                key="focus"
                 course={selectedCourse}
                 progress={lessonProgress}
                 currentCard={studySession[sessionIndex] ?? null}
@@ -281,6 +318,8 @@ export default function LuminaApp() {
                 isLumiHappy={isLumiHappy}
                 onQualityRate={handleQualityRate}
                 isReviewPending={reviewMutation.isPending}
+                reviewError={reviewError}
+                advanceError={advanceError}
               />
             ) : view === 'celebrate' ? (
               <CelebrationView
@@ -561,7 +600,7 @@ const CourseCard = ({ course, index, onSelect }: {
 }) => {
   const IconComponent = iconMap[course.iconName] ?? Sparkles;
   const isComplete = course.progress.completedAt !== null;
-  const completedLessons = Math.floor((course.progress.percentage / 100) * course.lessonCount);
+  const completedLessons = Math.round((course.progress.percentage / 100) * course.lessonCount);
 
   return (
     <motion.div
@@ -702,6 +741,8 @@ const FocusView = ({
   isLumiHappy,
   onQualityRate,
   isReviewPending,
+  reviewError,
+  advanceError,
 }: {
   course: Course;
   progress: number;
@@ -712,8 +753,15 @@ const FocusView = ({
   isLumiHappy: boolean;
   onQualityRate?: (quality: number) => void;
   isReviewPending?: boolean;
+  reviewError?: string | null;
+  advanceError?: string | null;
 }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Reset answer selection whenever the active card changes
+  useEffect(() => {
+    setSelectedId(null);
+  }, [sessionIndex, currentCard?.questionId]);
 
   const handleAnswer = useCallback((answer: StudyAnswer) => {
     if (selectedId || isReviewPending) return;
@@ -778,9 +826,33 @@ const FocusView = ({
         </div>
       </div>
 
+      {/* Error feedback */}
+      {(reviewError || advanceError) && (
+        <div className="mx-6 mb-2 px-4 py-2 rounded-2xl bg-red-500/10 border border-red-500/30 text-xs text-red-400 text-center font-medium">
+          {reviewError ?? advanceError}
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pb-6">
-        {!currentCard ? (
+        {!currentCard && sessionTotal === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <span className="text-4xl">✨</span>
+            <p className="text-sm text-muted-foreground font-medium text-center leading-relaxed">
+              Aucune carte à réviser pour ce parcours.
+              <br />
+              <span className="text-foreground/50 text-xs">Reviens demain !</span>
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={onBack}
+              className="mt-2 px-6 py-2.5 rounded-2xl bg-primary/10 border border-primary/30 text-primary text-xs font-bold tracking-widest uppercase"
+            >
+              Retour
+            </motion.button>
+          </div>
+        ) : !currentCard ? (
           <div className="flex items-center justify-center py-20">
             <motion.div
               animate={{ opacity: [0.3, 1, 0.3] }}

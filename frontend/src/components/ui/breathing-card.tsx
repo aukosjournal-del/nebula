@@ -49,8 +49,8 @@ export const BreathingCard = React.forwardRef<
           relative overflow-hidden
           p-6
           rounded-[12px]
-          bg-white bg-opacity-70
-          border border-black border-opacity-5
+          bg-muted/15
+          border border-border/30
           backdrop-blur-[40px]
           transition-all duration-300
           ${interactive ? 'cursor-pointer hover:shadow-lg' : ''}

@@ -220,13 +220,21 @@ async function syncLessonProgress(
   const prevProgress = await prisma.progress.findUnique({
     where: { userId_courseId: { userId, courseId: course.id } },
   })
-  const prevPercentage = prevProgress?.percentage ?? 0
-  const lessonComplete = newPercentage > prevPercentage
+  const prevCompletedLessonCount = prevProgress
+    ? Math.round((prevProgress.percentage / 100) * totalLessons)
+    : 0
+  const lessonComplete = completedLessonCount > prevCompletedLessonCount
 
   // Upsert progress
   const currentLessonId = courseComplete
     ? allLessons[totalLessons - 1].id
     : (firstIncompleteLessonId ?? allLessons[0]?.id)
+
+  // Preserve completedAt if the course was already marked complete
+  const alreadyComplete = prevProgress?.completedAt != null
+  const completedAt = courseComplete
+    ? (alreadyComplete ? prevProgress!.completedAt : new Date())
+    : null
 
   await prisma.progress.upsert({
     where: { userId_courseId: { userId, courseId: course.id } },
@@ -241,7 +249,7 @@ async function syncLessonProgress(
     update: {
       currentLessonId: currentLessonId,
       percentage: newPercentage,
-      completedAt: courseComplete ? new Date() : null,
+      completedAt,
     },
   })
 

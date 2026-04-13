@@ -52,15 +52,15 @@ export const ALButton = React.forwardRef<
         ${glowEffect ? 'shadow-lg' : ''}
       `,
       secondary: `
-        bg-gray-100
-        text-gray-900
-        hover:bg-gray-200
-        border border-gray-200
+        bg-muted/20
+        text-foreground
+        hover:bg-muted/40
+        border border-border
       `,
       ghost: `
         bg-transparent
-        text-cyan-600
-        hover:bg-cyan-50
+        text-primary
+        hover:bg-primary/10
       `,
       danger: `
         bg-red-500
